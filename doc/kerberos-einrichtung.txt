@@ -1,0 +1,323 @@
+--------------------------------------
+-- Kerberos unter Intrexx 8 verwenden
+--------------------------------------
+
+Der Einfachheit halber werden hier im Tutorial folgende Abkürzungen verwendet:
+
+KDC Key Distribution Center
+FQHN = Full qualified hostname
+
+Folgende Beispiele werden für die Konfiguration verwendet:
+
+KDC ist erreichbar unter:       kdc.example.org
+FQHN des Tomcat-Servers lautet: tomcat.example.org
+Domäne lautet:                  EXAMPLE bzw. EXAMPLE.ORG
+Tomcat-AD-Benutzer-Login:       tomcat_user
+Tomcat-AD-Benutzer-Passwort:    GEHEIMES_PASSWORT
+
+----------------------------------------------------------------------------------------------
+(1) Vorbereitungen auf dem AD
+----------------------------------------------------------------------------------------------
+
+HINWEISE(und Stolperfallen):
+----------------------------
+Zuvor muss sichergestellt werden, dass für den Benutzer bereits keine SPN 
+registriert sind über:
+setspn -L tomcat_user
+Falls dem so ist, können die Einträge über folgenden Befehl wieder entfernt werden:
+setspn -D HTTP/tomcat.example.org tomcat_user
+setspn -D HTTP/tomcat tomcat_user
+
+Es muss ein AD-Benutzerkonto für den Tomcat-Dienst mit folgenden aktivierten Optionen erstellt werden:
+
+* Kennwort läuft nie ab
+* Benutzer kann Kennwort nicht ändern
+* Dieses Konto unterstützt Kerberos-AES-128-Bit-Verschlüsselung
+
+(Das Passwort lautet hier im Beispiel GEHEIMES_PASSWORT)
+
+Es muss ein SPN(Service Principal Name) erstellt und dem Tomcat-Benutzerkonto zugewiesen werden:
+
+setspn -A HTTP/tomcat.example.org tomcat_user
+setspn -A HTTP/tomcat tomcat_user
+
+
+
+-------------------------
+(2) Erzeugen einer Keytab (auf dem Tomcat-Server)
+-------------------------
+
+Der Tomcat-Dienst muss sich beim Start am KDC (Active Directory Server) registrieren. Hierfür hatten wir ja zuvor auf dem AD
+einen Benutzer mit entsprechendem Passwort erstellt (siehe Punkt 1).
+Damit diese Informationen dem Tomcat-Dienst beim Start zur Verfügung stehen, muss eine Keytab-Datei
+erzeugt werden, welche die benötigten Logindaten enthält.
+
+Für die Generierung dieser Datei ist das Java-Tool ktab.exe empfohlen. Dies ist in der Windows-JRE enthalten
+und ist somit bspw. auch auf einem Client mit einer Portal manager Installation bereits vorhanden.
+Dies muss dann auch auf einem Rechner der Domäne ausgeführt werden, da beim Ausführen Informationen vom KDC
+bezogen werden. Später wird die erzeugte Datei dann auf den Tomcat-Server kopiert.
+
+Folgende Schritte erzeugen dann die Datei:
+- in der Eingabeaufforderung in das bin-Verzeichnis der Intrexx-JRE wechseln nach
+c:\Program Files\intrexx\jre\windows\amd64\bin\
+- die Keytab erzeugen (tomcat_user und GEHEIMES_PASSWORT, sowie den Ausgabepfad der Datei müssen natürlich
+entsprechend angepasst werden):
+
+ktab.exe -a tomcat_user GEHEIMES_PASSWORT -n 0 -k c:\PATH\TO\KEYTAB.FILE\tomcat.keytab
+
+Die damit erzeugte Datei muss dann auf den Intrexx-Server kopiert und entsprechend geschützt werden, da sie
+ja die Anmeldeinformationen der Tomcat-Benutzers enthält.
+
+Hier eine kurze Erläuterung der einzelnen Optionen:
+
+-a                      fügt SPN und Passwort hinzu
+-k                      gibt die Keytab-Datei an, in die geschrieben wird
+-n0                     ist notwendig um den Keytab-Zähler(KVNO) auf 0 zu setzen
+
+
+HINWEIS: Ktpass.exe, welches auf AD-Servern bereits installiert ist, sollte für die Generierung der Keytab
+nicht verwendet werden.
+
+----------------------------------------------------------------------------------------------
+(3) Installation auf Intrexx-Seite
+----------------------------------------------------------------------------------------------
+
+HINWEIS: 
+Für die Benutzerreplikation muss das Profil "ActiveDirectory NTLM compatible" verwendet werden, da die Kerberos-Authentifizierung
+Informationen aus dem sAMAccount benötigt.
+
+----------------------------------------------------------
+a) Die Spnego-Bibliothek muss in Tomcat eingebunden werden
+----------------------------------------------------------
+
+Bei einer Intrexx 8 Neuinstallation ist dies bereits automatisch der Fall, d.h. dieser Punkt kann
+übersprungen werden.
+
+Wird von einer älteren Version auf Intrexx 8 gewechselt, indem bei der Installation in das bestehende
+Verzeichnis installiert wird, muss das entsprechende Modul manuell eingebunden werden.
+Die entsprechende Bibliothek liegt unter <INTREXX_INST_PFAD>/lib und lautet spnego-r7.jar.
+Damit der Tomcat diese auch verwendet, muss in der tomcat.wcf (unter <INTREXX_INST_PFAD>/cfg) noch
+ein Eintrag gesetzt werden:
+
+wrapper.java.classpath.XX=lib/spnego-r7.jar
+(wobei die Numerierung XX entsprechend der bestehenden classpath-Einträge eindeutig sein muss)
+
+
+------------------------------------------------------------
+b) Die spnego.login.conf sowie die spnego.krb5.conf anpassen
+------------------------------------------------------------
+
+Die Keytab wurde in Punkt 2) erstellt und auf den Intrexx-Server kopiert. Diese wird nun in der
+spnego.login.conf eingebunden (welche dann später wiederum in Punkt e) in der web.xml eingebunden wird).
+
+Der Einfachheithalber legen wir im Folgenden alle vom Tomcat verwendeten Dateien im Beispiel-Pfad
+C:/PATH/TO/KEYTAB.FILE/ ab. 
+Dort sollte bereits die Keytab tomcat.keytab liegen. Die spnego.login.conf sowie die spnego.krb5.conf
+werden wir dann ebenso dort ablegen.
+
+Beispiele der beiden Dateien liegen unter <INTREXX_INST_PFAD>/samples/tomcat_kerberosauth/doc, diese können
+einfach in den oben genannten Pfad kopiert werden, und dann entsprechend angepasst werden.
+
+Die beiden entscheidenden Einträge in der spnego.login.conf sind der Pfad zur Keytab (also der keyTab= Eintrag)
+sowie der Tomcat-AD-Benutzer (der principal= Eintrag).
+
+Die spnego.login.conf sieht dann mit den hier im Beispiel verwendeten Eintstellungen folgendermaßen aus:
+
+
+------------------- spnego.login.conf ANFANG --
+
+spnego-client {
+    com.sun.security.auth.module.Krb5LoginModule required;
+};
+
+spnego-server {
+    com.sun.security.auth.module.Krb5LoginModule required
+    storeKey=true
+    debug=true
+    useKeyTab=true
+    keyTab="file:///c:/PATH/TO/KEYTAB.FILE/tomcat.keytab"
+    principal=tomcat_user;
+};
+
+------------------- spnego.login.conf ENDE ----
+
+
+In der spnego.krb5.conf müssen die Kerberos Realm-Einträge entsprechend angepasst werden. Diese entsprechen
+erfahrungsgemäß dem Domänen-Eintrag.
+Die Einträge müssen Großgeschrieben sein. 
+
+Die spnego.krb5.conf sieht dann folgendermaßen aus:
+
+------------------- spnego.krb5.conf ANFANG ---
+
+[libdefaults]
+                default_tkt_enctypes = aes128-cts rc4-hmac des3-cbc-sha1 des-cbc-md5 des-cbc-crc
+                default_tgs_enctypes = aes128-cts rc4-hmac des3-cbc-sha1 des-cbc-md5 des-cbc-crc
+                permitted_enctypes   = aes128-cts rc4-hmac des3-cbc-sha1 des-cbc-md5 des-cbc-crc
+                default_realm   =             EXAMPLE.ORG
+
+[realms]
+                EXAMPLE  = {
+                               kdc = kdc.example.org
+                               default_domain = EXAMPLE.ORG
+}
+
+[domain_realm]
+                .EXAMPLE.ORG = EXAMPLE.ORG
+
+------------------- spnego.krb5.conf ENDE -----
+
+
+
+
+------------------------------------
+c) Die web.xml muss angepasst werden
+------------------------------------
+
+Die zuvor erstellten Dateien (also spnego.login.conf sowie spnego.krb5.conf) werden letztendlich
+in der web.xml eingebunden.
+Die web.xml findet sich im Portal-Verzeichnis unter <PORTAL>/external/htmlroot/WEB-INF/.
+
+Dort findet sich per Default ein auskommentierter Eintrag für den SpnegoFilter. Dieser muss
+entkommentiert werden, und der Pfad auf die beiden Dateien entsprechend angepasst werden,
+sodass der entsprechende Abschnitt dann wie folgt aussieht:
+
+------------------- web.xml Auszug ANFANG -----
+<filter>
+    <filter-name>SpnegoAuthenticationFilter</filter-name>
+    <filter-class>de.uplanet.lucy.server.connector.servlet.SpnegoAuthenticationFilter</filter-class>
+
+    <init-param>
+        <param-name>spnego.allow.basic</param-name>
+        <param-value>true</param-value>
+    </init-param>
+
+    <init-param>
+        <param-name>spnego.allow.localhost</param-name>
+        <param-value>true</param-value>
+    </init-param>
+
+    <init-param>
+        <param-name>spnego.allow.unsecure.basic</param-name>
+        <param-value>true</param-value>
+    </init-param>
+
+    <init-param>
+        <param-name>spnego.login.client.module</param-name>
+        <param-value>spnego-client</param-value>
+    </init-param>
+
+    <init-param>
+        <param-name>spnego.krb5.conf</param-name>
+        <param-value>C:/PATH/TO/KEYTAB.FILE/spnego.krb5.conf</param-value>
+    </init-param>
+
+    <init-param>
+        <param-name>spnego.login.conf</param-name>
+        <param-value>C:/PATH/TO/KEYTAB.FILE/spnego.login.conf</param-value>
+    </init-param>
+
+    <init-param>
+        <param-name>spnego.preauth.username</param-name>
+        <param-value></param-value>
+    </init-param>
+
+    <init-param>
+        <param-name>spnego.preauth.password</param-name>
+        <param-value></param-value>
+    </init-param>
+
+    <init-param>
+        <param-name>spnego.login.server.module</param-name>
+        <param-value>spnego-server</param-value>
+    </init-param>
+
+    <init-param>
+        <param-name>spnego.prompt.ntlm</param-name>
+        <param-value>true</param-value>
+    </init-param>
+
+    <init-param>
+        <param-name>spnego.allow.delegation</param-name>
+        <param-value>true</param-value>
+    </init-param>
+
+    <init-param>
+        <param-name>spnego.logger.level</param-name>
+        <param-value>1</param-value>
+    </init-param>
+</filter>
+
+
+<filter-mapping>
+    <filter-name>SpnegoAuthenticationFilter</filter-name>
+    <url-pattern>*</url-pattern>
+</filter-mapping>
+
+------------------- web.xml Auszug ENDE -------
+
+
+
+-----------------------------------------------
+d) Testen der Vorauthentifizierung
+-----------------------------------------------
+Nach dem Neustart des Tomcat-Dienstes sollte sich dieser nun versuchen am KDC zu authentifizieren.
+Ob dies erfolgreich war, kann man im tomcat_startup.log überprüfen.
+
+
+INFO   | jvm 1    | 2016/05/18 15:28:28 | Debug is  true storeKey true useTicketCache false useKeyTab true doNotPrompt false ticketCache is null isInitiator true KeyTab is ///C:/PATH/TO/KEYTAB.FILE/tomcat.keytab refreshKrb5Config is false principal is tomcat_user tryFirstPass is false useFirstPass is false storePass is false clearPass is false
+INFO   | jvm 1    | 2016/05/18 15:28:28 | principal is tomcat_user@EXAMPLE.ORG
+INFO   | jvm 1    | 2016/05/18 15:28:28 | Will use keytab
+INFO   | jvm 1    | 2016/05/18 15:28:28 | Commit Succeeded 
+
+---------------------------------------------------
+e) Einträge in der LucyAuth.cfg sowie in der om.cfg
+---------------------------------------------------
+
+Damit Intrexx die Authentifizierung verwendet, muss in der LucyAuth.cfg noch ein entsprechender
+LoginProvider hinzugefügt werden, und dieser dann in der om.cfg für den entsprechenden Dienst eingebunden werden.
+Beide Dateien liegen im Portalverzeichnis unter <PORTAL_PFAD>/internal/cfg.
+
+Für den Eintrag in der LucyAuth.cfg liegt unter <INTREXX_INST_PFAD>/samples/tomcat-kerberosauth/doc/ eine LucyAuth.cfg,
+welche Beispiel-Einträge enthält.
+
+Im Allgemeinen sollte der TomcatKerberosAuth2-Eintrag genügen. Unterscheidet sich der UserPrincipalName vom sAMAccount-Name
+empfiehlt sich der TomcatKerberosAuth3-Eintrag.
+
+Als Beispiel: 
+
+Im Active Directory lautet der aSAMAccount-Eintrag des Benutzers "Heinrich Müller" PRE2000EXAMPLE\heinrichm. Der UserPrincipalName
+desselben Benutzers lautet heinrich.mueller@example.org.
+Der Benutzer-Import wurde mit dem "ActiveDirectory NTLM compatible" durchgeführt.
+
+Falls der Prä2000-Domainname vom UserPrincipal-Domainname abweicht, kann die Prä2000-Domain explizit mit dem folgenden Eintrag
+in der LucyAuth.cfg übergeben werden:
+
+TomcatKerberosAuth3
+{
+	de.uplanet.lucy.server.auth.module.external.ExternalAuthenticationLoginModule required
+		de.uplanet.auth.fixedLoginDomain="PRE2000EXAMPLE"
+		debug=true;
+};
+
+In der om.cfg muss dann letztendlich auf den entsprechenden Eintrag verwiesen werden, über bspw. folgende Zeile:
+
+	<binding scope="web" auth-type="TomcatKerberosAuth3"/>
+
+Damit die Änderungen greifen, muss der Portal-Dienst neugestartet werden.
+
+Falls mehrere Domänen verwendet werden, können diese auch per Groovy-Script umfangreicher konfiguriert werden. In diesem
+Fall bietet der Eintrag TomcatKerberosAuth4 die Möglichkeit auf ein Groovy-Script zu verweisen, und dort zusätzliche
+Konfigurationen vorzunehmen.
+
+
+------------------------------
+4) Browser-seitige Anpassungen
+------------------------------
+
+a) Internet Explorer
+Der Tomcat-Server muss unter Internetoptionen -> Sicherheit -> Sites hinzugefügt werden, also hier im Beispiel "tomcat.example.org".
+
+b) Firefox
+In der Addressleiste "about:config" eingeben. Der Tomcat-Server muss unter "network-negotiate-auth.trusted-uris"
+hinzugefügt werden.

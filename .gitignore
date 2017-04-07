@@ -1,0 +1,7 @@
+# Subversion
+.svn
+
+[tT]humbs.db
+.DS_Store
+*.bak
+*.swp

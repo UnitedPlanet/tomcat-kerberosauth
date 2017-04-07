@@ -1,0 +1,78 @@
+Sample configuration for the Tomcat Kerberos/SPNEGO Authentication Filter in the web.xml:
+
+Note:
+
+The SpnegoAuthenticationFilter actually delegates to the net.sourceforge.spnego.SpnegoHttpFilter
+from http://spnego.sourceforge.net/ so all the configuration options described there also apply
+to this filter.
+
+
+	<filter>
+		<filter-name>SpnegoAuthenticationFilter</filter-name>
+		<filter-class>de.uplanet.lucy.server.connector.servlet.SpnegoAuthenticationFilter</filter-class>
+		
+		<init-param>
+			<param-name>spnego.allow.basic</param-name>
+			<param-value>true</param-value>
+		</init-param>
+
+		<init-param>
+			<param-name>spnego.allow.localhost</param-name>
+			<param-value>true</param-value>
+		</init-param>
+
+		<init-param>
+			<param-name>spnego.allow.unsecure.basic</param-name>
+			<param-value>true</param-value>
+		</init-param>
+
+		<init-param>
+			<param-name>spnego.login.client.module</param-name>
+			<param-value>spnego-client</param-value>
+		</init-param>
+
+		<init-param>
+			<param-name>spnego.krb5.conf</param-name>
+			<param-value>C:\absolute\path\to\spnego.krb5.conf</param-value>
+		</init-param>
+
+		<init-param>
+			<param-name>spnego.login.conf</param-name>
+			<param-value>C:\absolute\path\to\spnego.login.conf</param-value>
+		</init-param>
+
+		<init-param>
+			<param-name>spnego.preauth.username</param-name>
+			<param-value/>
+		</init-param>
+
+		<init-param>
+			<param-name>spnego.preauth.password</param-name>
+			<param-value/>
+		</init-param>
+
+		<init-param>
+			<param-name>spnego.login.server.module</param-name>
+			<param-value>spnego-server</param-value>
+		</init-param>
+
+		<init-param>
+			<param-name>spnego.prompt.ntlm</param-name>
+			<param-value>true</param-value>
+		</init-param>
+
+		<init-param>
+			<param-name>spnego.allow.delegation</param-name>
+			<param-value>true</param-value>
+		</init-param>
+
+		<init-param>
+			<param-name>spnego.logger.level</param-name>
+			<param-value>1</param-value>
+		</init-param>
+	</filter>
+
+	<filter-mapping>
+		<filter-name>SpnegoAuthenticationFilter</filter-name>
+		<url-pattern>*</url-pattern>
+	</filter-mapping>
