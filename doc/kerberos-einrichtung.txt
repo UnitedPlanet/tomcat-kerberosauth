@@ -325,7 +325,9 @@ hinzugefügt werden.
 -----------------------------
 
 Nachdem der Portal- als auch der Tomcat-Dienst neugestartet wurden, kann man die Authentifizierung mit einem beliebigen Benutzer der AD testen.
-Nach dem Anmelden am Windows-System sollte dieser Benutzer ein Kerberos-Ticket erhalten, was über folgenden Befehl überprüft werden kann:
+Nach dem Anmelden am Windows-System sollte dieser Benutzer - sofern er eben ein Benutzer aus der Domäne ist - ein Kerberos-Ticket erhalten, was 
+über folgenden Befehl überprüft werden kann:
+
 klist tgt
 
 Nun kann man versuchen, das Portal im Browser aufzurufen. Falls die Anmeldung scheitern sollte, hilft ein Blick in die portal.log weiter. 
