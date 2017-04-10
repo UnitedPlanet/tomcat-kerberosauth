@@ -16,7 +16,7 @@ Tomcat-AD-Benutzer-Login:       tomcat_user
 Tomcat-AD-Benutzer-Passwort:    GEHEIMES_PASSWORT
 
 ----------------------------------------------------------------------------------------------
-(1) Vorbereitungen auf dem AD
+(1) Vorbereitungen auf dem Domain Controller
 ----------------------------------------------------------------------------------------------
 
 HINWEISE(und Stolperfallen):
@@ -36,7 +36,7 @@ Es muss ein AD-Benutzerkonto für den Tomcat-Dienst mit folgenden aktivierten Op
 
 (Das Passwort lautet hier im Beispiel GEHEIMES_PASSWORT)
 
-Es muss ein SPN(Service Principal Name) erstellt und dem Tomcat-Benutzerkonto zugewiesen werden:
+Es muss ein SPN(Service Principal Name) erstellt und dem Tomcat-Benutzerkonto zugewiesen werden, die Groß-/Kleinschreibung muss beachtet werden:
 
 setspn -A HTTP/tomcat.example.org tomcat_user
 setspn -A HTTP/tomcat tomcat_user
@@ -82,10 +82,6 @@ nicht verwendet werden.
 (3) Installation auf Intrexx-Seite
 ----------------------------------------------------------------------------------------------
 
-HINWEIS: 
-Für die Benutzerreplikation muss das Profil "ActiveDirectory NTLM compatible" verwendet werden, da die Kerberos-Authentifizierung
-Informationen aus dem sAMAccount benötigt.
-
 ----------------------------------------------------------
 a) Die Spnego-Bibliothek muss in Tomcat eingebunden werden
 ----------------------------------------------------------
@@ -94,7 +90,7 @@ Bei einer Intrexx 8 Neuinstallation ist dies bereits automatisch der Fall, d.h. 
 übersprungen werden.
 
 Wird von einer älteren Version auf Intrexx 8 gewechselt, indem bei der Installation in das bestehende
-Verzeichnis installiert wird, muss das entsprechende Modul manuell eingebunden werden.
+Verzeichnis installiert wird, muss das entsprechende Modul eventuell manuell eingebunden werden.
 Die entsprechende Bibliothek liegt unter <INTREXX_INST_PFAD>/lib und lautet spnego-r7.jar.
 Damit der Tomcat diese auch verwendet, muss in der tomcat.wcf (unter <INTREXX_INST_PFAD>/cfg) noch
 ein Eintrag gesetzt werden:
@@ -274,9 +270,11 @@ INFO   | jvm 1    | 2016/05/18 15:28:28 | Commit Succeeded
 e) Einträge in der LucyAuth.cfg sowie in der om.cfg
 ---------------------------------------------------
 
-Damit Intrexx die Authentifizierung verwendet, muss in der LucyAuth.cfg noch ein entsprechender
-LoginProvider hinzugefügt werden, und dieser dann in der om.cfg für den entsprechenden Dienst eingebunden werden.
-Beide Dateien liegen im Portalverzeichnis unter <PORTAL_PFAD>/internal/cfg.
+Im Folgenden wird die Einrichtung auf Intrexx-Seite beschrieben.
+
+Damit Intrexx bzw. das entsprechende Portal das Kerberos-Modul für die  Authentifizierung verwendet, muss in der LucyAuth.cfg
+noch ein entsprechender LoginProvider hinzugefügt werden, und dieser dann in der om.cfg für den entsprechenden Dienst eingebunden 
+werden. Beide Dateien liegen im Portalverzeichnis unter <PORTAL_PFAD>/internal/cfg.
 
 Für den Eintrag in der LucyAuth.cfg liegt unter <INTREXX_INST_PFAD>/samples/tomcat-kerberosauth/doc/ eine LucyAuth.cfg,
 welche Beispiel-Einträge enthält.
@@ -304,12 +302,11 @@ In der om.cfg muss dann letztendlich auf den entsprechenden Eintrag verwiesen we
 
 	<binding scope="web" auth-type="TomcatKerberosAuth3"/>
 
-Damit die Änderungen greifen, muss der Portal-Dienst neugestartet werden.
-
 Falls mehrere Domänen verwendet werden, können diese auch per Groovy-Script umfangreicher konfiguriert werden. In diesem
 Fall bietet der Eintrag TomcatKerberosAuth4 die Möglichkeit auf ein Groovy-Script zu verweisen, und dort zusätzliche
 Konfigurationen vorzunehmen.
 
+Damit die Änderungen greifen, muss der Portal-Dienst neugestartet werden. 
 
 ------------------------------
 4) Browser-seitige Anpassungen
@@ -321,3 +318,21 @@ Der Tomcat-Server muss unter Internetoptionen -> Sicherheit -> Sites hinzugefüg
 b) Firefox
 In der Addressleiste "about:config" eingeben. Der Tomcat-Server muss unter "network-negotiate-auth.trusted-uris"
 hinzugefügt werden.
+
+
+-----------------------------
+5) Erster Test
+-----------------------------
+
+Nachdem der Portal- als auch der Tomcat-Dienst neugestartet wurden, kann man die Authentifizierung mit einem beliebigen Benutzer der AD testen.
+Nach dem Anmelden am Windows-System sollte dieser Benutzer ein Kerberos-Ticket erhalten, was über folgenden Befehl überprüft werden kann:
+klist tgt
+
+Nun kann man versuchen, das Portal im Browser aufzurufen. Falls die Anmeldung scheitern sollte, hilft ein Blick in die portal.log weiter. 
+Dort werden bei einem gescheiterten Anmeldevorgang die entsprechenden Login-Daten protokolliert. Falls die dortigen Anmeldeinformationen 
+nicht mit den Login-Daten des entpsrechenden Intrexx-Benutzers übereinstimmen, muss das bei der Benutzer-Replikation entsprechend berücksichtigt 
+werden, indem bspw. ein anderes Profil verwendet wird bzw. das verwendete Replikationsprofil entsprechend angepasst wird.
+
+
+
+
