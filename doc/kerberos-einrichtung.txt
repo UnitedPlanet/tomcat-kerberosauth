@@ -19,15 +19,6 @@ Tomcat-AD-Benutzer-Passwort:    GEHEIMES_PASSWORT
 (1) Vorbereitungen auf dem Domain Controller
 ----------------------------------------------------------------------------------------------
 
-HINWEISE(und Stolperfallen):
-----------------------------
-Zuvor muss sichergestellt werden, dass für den Benutzer bereits keine SPN 
-registriert sind über:
-setspn -L tomcat_user
-Falls dem so ist, können die Einträge über folgenden Befehl wieder entfernt werden:
-setspn -D HTTP/tomcat.example.org tomcat_user
-setspn -D HTTP/tomcat tomcat_user
-
 Es muss ein AD-Benutzerkonto für den Tomcat-Dienst mit folgenden aktivierten Optionen erstellt werden:
 
 * Kennwort läuft nie ab
@@ -36,11 +27,23 @@ Es muss ein AD-Benutzerkonto für den Tomcat-Dienst mit folgenden aktivierten Op
 
 (Das Passwort lautet hier im Beispiel GEHEIMES_PASSWORT)
 
-Es muss ein SPN(Service Principal Name) erstellt und dem Tomcat-Benutzerkonto zugewiesen werden, die Groß-/Kleinschreibung muss beachtet werden:
+Es muss ein SPN(Service Principal Name) erstellt und dem Tomcat-Benutzerkonto zugewiesen werden, die 
+Groß-/Kleinschreibung muss beachtet werden. Zuvor sollte man eventuell sichersttellen, dass für den Benutzer 
+nicht bereits SPN registriert sind (siehe Hinweise, unten).
+
+Über folgende Befehle wird dann der SPN dem Tomcat-Benutzer zugewiesen:
 
 setspn -A HTTP/tomcat.example.org tomcat_user
 setspn -A HTTP/tomcat tomcat_user
 
+HINWEISE:
+----------------------------
+Über den folgenden Befehl kann man überprüfen, ob für den Benutzer bereits SPN registriert sind:
+setspn -L tomcat_user
+
+Falls dem so ist, können die Einträge über folgenden Befehl wieder entfernt werden:
+setspn -D HTTP/tomcat.example.org tomcat_user
+setspn -D HTTP/tomcat tomcat_user
 
 
 -------------------------
