@@ -77,9 +77,31 @@ Hier eine kurze Erläuterung der einzelnen Optionen:
 -k                      gibt die Keytab-Datei an, in die geschrieben wird
 -n0                     ist notwendig um den Keytab-Zähler(KVNO) auf 0 zu setzen
 
+Auf Linux-Systemen kann alternativ auch ktutil verwendet werden. Je nachdem, ob der MIT Kerberos- oder
+Heimdal-Client installiert ist, funktioniert der Aufruf anders (zur MIT Kerberos Implementierung, siehe
+Hinweis, siehe [1], unten)
 
-HINWEIS: Ktpass.exe, welches auf AD-Servern bereits installiert ist, sollte für die Generierung der Keytab
-nicht verwendet werden.
+Unter Heimdal:
+ktutil -k tomcat.keytab add -p tomcat_user@EXAMPLE.ORG -e aes128-cts --kvno=0
+
+HINWEISE:
+------------
+[1] Ktpass.exe, welches auf AD-Servern bereits installiert ist, sollte laut Entwickler des
+des externen spnego-Modules für die Generierung der Keytab nicht verwendet werden:
+https://sourceforge.net/p/spnego/discussion/1003768/thread/dbbb711d/
+[2] ktutil der MIT Kerberos
+Die MIT Kerberos Implementierung lässt es nicht zu, die Überprüfung des "Key Version Number"
+zu deaktiveren (kvno=0). In dem Fall muss sichergestellt werden, dass die Versionsnummer im Keytab
+identisch ist mit der Active Directory-seitig gespeicherten KVNO, siehe:
+https://blogs.msdn.microsoft.com/openspecification/2009/11/13/to-kvno-or-not-to-kvno-what-is-the-version/
+
+Die KVNO des Keytab lässt folgendermaßen abfragen:
+klist -e -k -t tomcat.keytab
+Die Active Directory-seitig gespeicherte KVNO lässt sich wie folgt ermitteln:
+Unter der Windows-Powershell:
+get-aduser <username> -property msDS-KeyVersionNumber
+Unter Linux (/etc/krb5.conf muss dafür korrrekt konfiguriert sein):
+kvno HTTP/tomcat.example.org
 
 ----------------------------------------------------------------------------------------------
 (3) Installation auf Intrexx-Seite
