@@ -79,7 +79,7 @@ Hier eine kurze Erläuterung der einzelnen Optionen:
 
 Auf Linux-Systemen kann alternativ auch ktutil verwendet werden. Je nachdem, ob der MIT Kerberos- oder
 Heimdal-Client installiert ist, funktioniert der Aufruf anders (zur MIT Kerberos Implementierung, siehe
-Hinweis, siehe [1], unten)
+Hinweis, siehe [2], unten)
 
 Unter Heimdal:
 ktutil -k tomcat.keytab add -p tomcat_user@EXAMPLE.ORG -e aes128-cts --kvno=0
