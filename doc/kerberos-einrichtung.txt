@@ -66,7 +66,7 @@ c:\Program Files\intrexx\jre\windows\amd64\bin\
 - die Keytab erzeugen (tomcat_user und GEHEIMES_PASSWORT, sowie den Ausgabepfad der Datei müssen natürlich
 entsprechend angepasst werden):
 
-ktab.exe -a tomcat_user GEHEIMES_PASSWORT -n 0 -k c:\PATH\TO\KEYTAB.FILE\tomcat.keytab
+ktab.exe -a tomcat_user@EXAMPLE.ORG GEHEIMES_PASSWORT -n 0 -k c:\PATH\TO\KEYTAB.FILE\tomcat.keytab
 
 Die damit erzeugte Datei muss dann auf den Intrexx-Server kopiert und entsprechend geschützt werden, da sie
 ja die Anmeldeinformationen der Tomcat-Benutzers enthält.
@@ -337,19 +337,24 @@ Damit die Änderungen greifen, muss der Portal-Dienst neugestartet werden.
 4) Browser-seitige Anpassungen
 ------------------------------
 
-a) Internet Explorer
-Der Tomcat-Server muss unter Internetoptionen -> Sicherheit -> Sites hinzugefügt werden, also hier im Beispiel "tomcat.example.org".
-
-b) Firefox
+a) Firefox
 In der Addressleiste "about:config" eingeben. Der Tomcat-Server muss unter "network-negotiate-auth.trusted-uris"
 hinzugefügt werden.
 
+b) Internet Explorer 
+dieser verwendet die im System hinterlegten Interneteinstellungen.
+Der FQHN des Tomcat-Servers muss somit unter Systemsteuerung -> Internetoptionen -> Sicherheit -> Sites hinzugefügt werden, also hier im Beispiel "tomcat.example.org".
+
+c) Chrome verwendet in den aktuellsten Versionen ebenfalls die Systemeinstellungen
+Die Einrichtung geschieht also wie beim Internet Explorer über die Interneteinstellungen der Systemsteuerung (siehe b) )
+
 
 -----------------------------
-5) Erster Test
+5) Erster Browser-seitiger Test
 -----------------------------
 
-Nachdem der Portal- als auch der Tomcat-Dienst neugestartet wurden, kann man die Authentifizierung mit einem beliebigen Benutzer der AD testen.
+Nachdem der Portal- als auch der Tomcat-Dienst neugestartet wurden, kann man die Authentifizierung mit einem beliebigen Benutzer der AD im Browser testen.
+
 Nach dem Anmelden am Windows-System sollte dieser Benutzer - sofern er eben ein Benutzer aus der Domäne ist - ein Kerberos-Ticket erhalten, was 
 über folgenden Befehl überprüft werden kann:
 
