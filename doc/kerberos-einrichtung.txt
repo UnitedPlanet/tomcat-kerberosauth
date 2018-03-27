@@ -116,11 +116,11 @@ Bei einer Intrexx 8 Neuinstallation ist dies bereits automatisch der Fall, d.h. 
 
 Wird von einer älteren Version auf Intrexx 8 gewechselt, indem bei der Installation in das bestehende
 Verzeichnis installiert wird, muss das entsprechende Modul eventuell manuell eingebunden werden.
-Die entsprechende Bibliothek liegt unter <INTREXX_INST_PFAD>/lib und lautet spnego-r7.jar.
+Die entsprechende Bibliothek liegt unter <INTREXX_INST_PFAD>/lib und lautet spnego-r<VERSION>.jar.
 Damit der Tomcat diese auch verwendet, muss in der tomcat.wcf (unter <INTREXX_INST_PFAD>/cfg) noch
 ein Eintrag gesetzt werden:
 
-wrapper.java.classpath.XX=lib/spnego-r7.jar
+wrapper.java.classpath.XX=lib/spnego-r<VERSION>.jar
 (wobei die Numerierung XX entsprechend der bestehenden classpath-Einträge eindeutig sein muss)
 
 
@@ -189,7 +189,7 @@ Die spnego.krb5.conf sieht dann folgendermaßen aus:
 ------------------- spnego.krb5.conf ENDE -----
 
 
-
+service ticket
 
 ------------------------------------
 c) Die web.xml muss angepasst werden
@@ -334,37 +334,88 @@ Konfigurationen vorzunehmen.
 Damit die Änderungen greifen, muss der Portal-Dienst neugestartet werden. 
 
 ------------------------------
-4) Browser-seitige Anpassungen
+4) Client-seitige Anpassungen
 ------------------------------
 
 a) Firefox
-In der Addressleiste "about:config" eingeben. Der Tomcat-Server muss unter "network-negotiate-auth.trusted-uris"
-hinzugefügt werden.
+In der Addressleiste "about:config" eingeben. Der Tomcat-Server muss unter 
+"network.negotiate-auth.trusted-uris" hinzugefügt werden.
 
 b) Internet Explorer 
 dieser verwendet die im System hinterlegten Interneteinstellungen.
-Der FQHN des Tomcat-Servers muss somit unter Systemsteuerung -> Internetoptionen -> Sicherheit -> Sites hinzugefügt werden, also hier im Beispiel "tomcat.example.org".
+Der FQHN des Tomcat-Servers muss somit unter Systemsteuerung -> Internetoptionen -> 
+Sicherheit -> Sites hinzugefügt werden, also hier im Beispiel "tomcat.example.org".
 
 c) Chrome verwendet in den aktuellsten Versionen ebenfalls die Systemeinstellungen
-Die Einrichtung geschieht also wie beim Internet Explorer über die Interneteinstellungen der Systemsteuerung (siehe b) )
+Die Einrichtung geschieht also wie beim Internet Explorer über die Interneteinstellungen der 
+Systemsteuerung (siehe b) )
 
+-------------------------------
+5) Erster Test - Client-seitig
+-------------------------------
 
------------------------------
-5) Erster Browser-seitiger Test
------------------------------
+Test im Browser
+---------------
 
-Nachdem der Portal- als auch der Tomcat-Dienst neugestartet wurden, kann man die Authentifizierung mit einem beliebigen Benutzer der AD im Browser testen.
+Nachdem der Portal- als auch der Tomcat-Dienst neugestartet wurden, kann man die Authentifizierung 
+mit einem beliebigen Benutzer der AD im Browser testen.
 
-Nach dem Anmelden am Windows-System sollte dieser Benutzer - sofern er eben ein Benutzer aus der Domäne ist - ein Kerberos-Ticket erhalten, was 
-über folgenden Befehl überprüft werden kann:
+Für den ersten Test sollte man die Netzwerkanalyse in den Web-Developertools des Browsers öffnen 
+und dann die Anfragen überprüfen:
+Normalerweise wird die Anfrage des Clients auf eine geschützte Resource vom Tomcat-Server mit 
+einem HTTP "401 Unauthorized" beantwortet, und dem Client mit dem Header "WWWW-Authenticate" die 
+Anforderung mitgeteilt, sich zu authentifizieren.
+Der Client schickt daraufhin in der Antwort das Kerberos-Token im Response Header, erkennbar 
+an "YII...", also etwa:
+"Authorization: Negotiate YII.......
+
+Aber nicht täuschen lassen:
+Es kann auch sein, dass die Anmeldung zu funktionieren scheint, Kerberos eigentlich gar nicht verwendet wird.
+Beispielweise könnte im Response Header auch folgendes zu finden sein:
+NTLM (beginnt mit TlR...):
+Authorization: Negotiate TlRMTVNTUAAB<HEX>
+Hier wird das unsicherere NTLM verwendet.
+
+BasicAuth:
+Authorization: Basic <LOGIN_UND_PASSWORT_LEDIGLICH_BASE64_KODIERT>==
+Was besonders unschön ist, weil Benutzername und Passwort lediglich Base64-kodiert direkt übertragen werden.
+
+Windows-Client als Fehlerquelle
+-------------------------------
+
+Falls die tomcat_startup.log keine Fehler aufzeigt (siehe 3d) ), die Browser-Anpassungen wie in Punkt 4 vorgenommen worden sind, sollte man überprüfen, 
+ob der Windows-Benutzer sein Ticket Granting Ticket (TGT) erhält. Erst dies ermöglicht ihm später den Zugriff auf den Tomcat-Service.
+
+Nach dem Anmelden am Windows-System sollte der entsprechende Benutzer - sofern er eben ein Benutzer aus der Domäne ist - ein Kerberos-Ticket erhalten, was 
+über folgenden Befehl im CMD-Prompt überprüft werden kann:
 
 klist tgt
 
-Nun kann man versuchen, das Portal im Browser aufzurufen. Falls die Anmeldung scheitern sollte, hilft ein Blick in die portal.log weiter. 
-Dort werden bei einem gescheiterten Anmeldevorgang die entsprechenden Login-Daten protokolliert. Falls die dortigen Anmeldeinformationen 
-nicht mit den Login-Daten des entpsrechenden Intrexx-Benutzers übereinstimmen, muss das bei der Benutzer-Replikation entsprechend berücksichtigt 
+Nach Zugriff auf den Tomcat-Server sollte dann der zugreifende Benutzer noch ein Service Ticket(TGS) erhalten, was folgendermaßen überprüft werden kann:
+
+klist tickets
+
+Falls die Ausgabe zu umfangreich ist - der Befehl zeigt nämlich alle erhaltenen Kerberos-Tickets an - kann der Ticket-Cache auch zuvor gelöscht werden über:
+
+klist purge
+
+Nach dem Aufruf des Portals im Browser, sollten die beiden Tickets mittels klist zu sehen sein.
+
+Logging der Anmeldeinformationen
+------------------------
+Falls die Anmeldung wegen falschem Benutzer/Passwort scheitert, kann man auch das Logging der Anmeldung erweitern.
+Dazu ersetzt man in der <PORTAL_PFAD>/internal/cfg/LucyAuth.cfg alle Einträge "Debug=false" mit "Debug=True".
+Nach dem Neustart des Portal-Dienstes sieht man dann in der <PORTAL_PFAD>/log/portal.log ausführlichere Ausgaben bezüglich der Loginversuche.
+Falls die dort protokollierten Anmeldeinformationen nicht mit den Login-Daten des entsprechenden Intrexx-Benutzers übereinstimmen, muss das bei der Benutzer-Replikation entsprechend berücksichtigt 
 werden, indem bspw. ein anderes Profil verwendet wird bzw. das verwendete Replikationsprofil entsprechend angepasst wird.
 
+Falls alle Stricke reißen
+-------------------------
+In dem Falle empfiehlt es sich, die Kommunikation eines "betroffenen" Clients mittels Wireshark zu protokollieren.
+Dazu löscht man den kompletten Ticket-Cache des Systems mittels "klist purge", den DNS-Cache mittels "ipconfig /flushdns" und protokolliert dann den darauffolgenden Anmeldevorgang.
 
+Der folgende ältere, aber in großen Teilen immer noch gültige, Microsoft-Artikel beschreibt die Vorgehensweise
+ausführlich:
+https://blogs.technet.microsoft.com/askds/2008/05/14/troubleshooting-kerberos-authentication-problems-name-resolution-issues/
 
 
